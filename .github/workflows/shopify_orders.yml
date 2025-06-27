@@ -24,4 +24,4 @@ jobs:
     - name: Executar script
       env:
         SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
-      run: python generate_orders.py
+      run: python shopify_orders.py
