@@ -6,8 +6,8 @@ from faker import Faker
 from datetime import datetime, timedelta
 
 # === CONFIG ===
-SHOP_NAME = "yyfrbw-fj.myshopify.com"
-SHOPIFY_TOKEN = SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
+SHOP_NAME = os.getenv("SHOP_NAME", "yyfrbw-fj.myshopify.com")
+SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 API_VERSION = "2023-10"
 
 HEADERS = {
@@ -75,7 +75,6 @@ def create_order(products):
         "order": {
             "email": customer["email"],
             "financial_status": "paid",
-            "fulfillment_status": "fulfilled",
             "created_at": order_date,
             "line_items": line_items,
             "shipping_address": {
@@ -94,7 +93,8 @@ def create_order(products):
     response = requests.post(url, headers=HEADERS, json=order_data)
 
     if response.status_code == 201:
-        print(f"✅ Encomenda criada para {customer['email']} em {customer['country']} na data {order_date}")
+        order = response.json().get("order", {})
+        print(f"✅ Encomenda ID {order.get('id')} criada para {customer['email']} em {customer['country']} na data {order_date}")
     else:
         print(f"❌ Erro ao criar encomenda: {response.status_code} - {response.text}")
 
