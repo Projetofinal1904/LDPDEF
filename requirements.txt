@@ -1,3 +1,4 @@
 requests
 faker
 python-dotenv
+pandas
