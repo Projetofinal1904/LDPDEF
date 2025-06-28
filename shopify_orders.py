@@ -3,7 +3,9 @@ import os
 import requests
 import random
 from faker import Faker
-from datetime import datetime, timedelta
+
+from dotenv import load_dotenv
+load_dotenv()
 
 SHOP_NAME = os.getenv("SHOP_NAME", "yyfrbw-fj.myshopify.com")
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
@@ -32,7 +34,7 @@ def get_products():
     if response.status_code == 200:
         return response.json().get("products", [])
     else:
-        print(f"Erro ao buscar produtos: {response.status_code}")
+        print(f"❌ Erro ao buscar produtos: {response.status_code}")
         return []
 
 # Gerar cliente fictício 
@@ -45,14 +47,6 @@ def generate_customer():
         "email": faker.email(),
         "country": country
     }
-
-# Criar data aleatória entre abril 2025 e hoje 
-def generate_random_date():
-    start_date = datetime(2025, 4, 1)
-    end_date = datetime(2025, 6, 23)
-    delta = end_date - start_date
-    random_days = random.randint(0, delta.days)
-    return (start_date + timedelta(days=random_days)).strftime("%Y-%m-%dT%H:%M:%S%z")
 
 # Criar encomenda no Shopify 
 def create_order(products):
@@ -68,13 +62,11 @@ def create_order(products):
             "quantity": random.randint(1, 3)
         })
 
-    order_date = generate_random_date()
-
     order_data = {
         "order": {
             "email": customer["email"],
             "financial_status": "paid",
-            "created_at": order_date,
+            "fulfillment_status": "fulfilled",  # opcional: marca como "enviado"
             "line_items": line_items,
             "shipping_address": {
                 "first_name": customer["first_name"],
@@ -93,9 +85,9 @@ def create_order(products):
 
     if response.status_code == 201:
         order = response.json().get("order", {})
-        print(f"Encomenda ID {order.get('id')} criada para {customer['email']} em {customer['country']} na data {order_date}")
+        print(f"✅ Encomenda ID {order.get('id')} criada para {customer['email']} em {customer['country']}")
     else:
-        print(f"Erro ao criar encomenda: {response.status_code} - {response.text}")
+        print(f"❌ Erro ao criar encomenda: {response.status_code} - {response.text}")
 
 # Executar
 products = get_products()
@@ -103,4 +95,5 @@ if products:
     for _ in range(20):  # cria 20 encomendas por execução
         create_order(products)
 else:
-    print(" Nenhum produto encontrado.")
+    print("⚠️ Nenhum produto encontrado.")
+
