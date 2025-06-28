@@ -111,4 +111,9 @@ def create_order(products):
 
 # Executar
 products = get_products()
-if produ
+if products:
+    for _ in range(20):
+        create_order(products)
+else:
+    print("🚫 Nenhum produto encontrado.")
+
