@@ -5,7 +5,6 @@ import random
 from faker import Faker
 from datetime import datetime, timedelta
 
-# === CONFIG ===
 SHOP_NAME = os.getenv("SHOP_NAME", "yyfrbw-fj.myshopify.com")
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 API_VERSION = "2023-10"
@@ -19,24 +18,24 @@ faker = Faker()
 Faker.seed(42)
 random.seed(42)
 
-# Lista de países permitidos (Europa, EUA e Brasil)
+# Lista de países permitidos 
 ALLOWED_COUNTRIES = [
     "Portugal", "Espanha", "França", "Alemanha", "Itália", "Países Baixos", "Bélgica", "Suécia", "Noruega",
     "Suíça", "Áustria", "Irlanda", "Dinamarca", "Polónia", "Grécia", "Finlândia", "Hungria", "Roménia",
     "Estados Unidos", "Brasil"
 ]
 
-# === Obter produtos reais ===
+# Obter produtos reais
 def get_products():
     url = f"https://{SHOP_NAME}/admin/api/{API_VERSION}/products.json?limit=250"
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
         return response.json().get("products", [])
     else:
-        print(f"❌ Erro ao buscar produtos: {response.status_code}")
+        print(f"Erro ao buscar produtos: {response.status_code}")
         return []
 
-# === Gerar cliente fictício ===
+# Gerar cliente fictício 
 def generate_customer():
     name = faker.name().split()
     country = random.choice(ALLOWED_COUNTRIES)
@@ -47,7 +46,7 @@ def generate_customer():
         "country": country
     }
 
-# === Criar data aleatória entre abril 2025 e hoje ===
+# Criar data aleatória entre abril 2025 e hoje 
 def generate_random_date():
     start_date = datetime(2025, 4, 1)
     end_date = datetime(2025, 6, 23)
@@ -55,7 +54,7 @@ def generate_random_date():
     random_days = random.randint(0, delta.days)
     return (start_date + timedelta(days=random_days)).strftime("%Y-%m-%dT%H:%M:%S%z")
 
-# === Criar encomenda no Shopify ===
+# Criar encomenda no Shopify 
 def create_order(products):
     customer = generate_customer()
     num_items = random.randint(1, 5)
@@ -94,14 +93,14 @@ def create_order(products):
 
     if response.status_code == 201:
         order = response.json().get("order", {})
-        print(f"✅ Encomenda ID {order.get('id')} criada para {customer['email']} em {customer['country']} na data {order_date}")
+        print(f"Encomenda ID {order.get('id')} criada para {customer['email']} em {customer['country']} na data {order_date}")
     else:
-        print(f"❌ Erro ao criar encomenda: {response.status_code} - {response.text}")
+        print(f"Erro ao criar encomenda: {response.status_code} - {response.text}")
 
-# === Executar ===
+# Executar
 products = get_products()
 if products:
     for _ in range(20):  # cria 20 encomendas por execução
         create_order(products)
 else:
-    print("⚠️ Nenhum produto encontrado.")
+    print(" Nenhum produto encontrado.")
