@@ -2,3 +2,4 @@ requests
 faker
 python-dotenv
 pandas
+sqlalchemy
