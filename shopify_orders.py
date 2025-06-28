@@ -3,10 +3,16 @@ import requests
 import random
 from faker import Faker
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SHOP_NAME = os.getenv("SHOP_NAME")
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 API_VERSION = "2023-10"
+
+if not SHOP_NAME:
+    raise ValueError(f"❌ SHOP_NAME inválido: {SHOP_NAME}")
 
 HEADERS = {
     "X-Shopify-Access-Token": SHOPIFY_TOKEN,
@@ -17,28 +23,14 @@ faker = Faker()
 Faker.seed(42)
 random.seed(42)
 
-# Dicionário de países: código ISO → nome completo
-COUNTRIES = {
-    "PT": "Portugal",
-    "ES": "Espanha",
-    "FR": "França",
-    "DE": "Alemanha",
-    "IT": "Itália",
-    "NL": "Países Baixos",
-    "BE": "Bélgica",
-    "SE": "Suécia",
-    "NO": "Noruega",
-    "CH": "Suíça",
-    "AT": "Áustria",
-    "IE": "Irlanda",
-    "DK": "Dinamarca",
-    "PL": "Polónia",
-    "GR": "Grécia",
-    "FI": "Finlândia",
-    "HU": "Hungria",
-    "RO": "Roménia",
-    "US": "Estados Unidos",
-    "BR": "Brasil"
+ALLOWED_COUNTRIES = {
+    "Portugal": None,
+    "Espanha": None,
+    "França": None,
+    "Alemanha": None,
+    "Itália": None,
+    "Estados Unidos": ["CA", "NY", "TX", "FL", "IL"],
+    "Brasil": ["SP", "RJ", "MG", "BA"],
 }
 
 def get_products():
@@ -47,18 +39,21 @@ def get_products():
     if response.status_code == 200:
         return response.json().get("products", [])
     else:
-        print(f"Erro ao buscar produtos: {response.status_code}")
+        print(f"❌ Erro ao buscar produtos: {response.status_code} - {response.text}")
         return []
 
 def generate_customer():
     name = faker.name().split()
-    country_code = random.choice(list(COUNTRIES.keys()))
+    country = random.choice(list(ALLOWED_COUNTRIES.keys()))
+    province_list = ALLOWED_COUNTRIES[country]
+    province = random.choice(province_list) if province_list else None
+
     return {
         "first_name": name[0],
         "last_name": name[-1],
-        "email": faker.email(),
-        "country_code": country_code,
-        "country_name": COUNTRIES[country_code]
+        "email": faker.unique.email(),
+        "country": country,
+        "province": province
     }
 
 def generate_random_date():
@@ -66,7 +61,7 @@ def generate_random_date():
     end_date = datetime.now()
     delta = end_date - start_date
     random_days = random.randint(0, delta.days)
-    return (start_date + timedelta(days=random_days)).isoformat()
+    return (start_date + timedelta(days=random_days)).strftime("%Y-%m-%dT%H:%M:%S")
 
 def create_order(products):
     customer = generate_customer()
@@ -81,22 +76,25 @@ def create_order(products):
             "quantity": random.randint(1, 3)
         })
 
+    shipping_address = {
+        "first_name": customer["first_name"],
+        "last_name": customer["last_name"],
+        "address1": faker.street_address(),
+        "city": faker.city(),
+        "country": customer["country"],
+        "zip": faker.postcode()
+    }
+
+    if customer["province"]:
+        shipping_address["province_code"] = customer["province"]
+
     order_data = {
         "order": {
             "email": customer["email"],
             "financial_status": "paid",
             "created_at": generate_random_date(),
-            "note": f"País: {customer['country_name']}",
             "line_items": line_items,
-            "shipping_address": {
-                "first_name": customer["first_name"],
-                "last_name": customer["last_name"],
-                "address1": faker.street_address(),
-                "city": faker.city(),
-                "province": "Lisboa",  # fixo para evitar erros
-                "country_code": customer["country_code"],
-                "zip": faker.postcode()
-            }
+            "shipping_address": shipping_address
         }
     }
 
@@ -105,9 +103,9 @@ def create_order(products):
 
     if response.status_code == 201:
         order = response.json().get("order", {})
-        print(f"✅ Encomenda ID {order.get('id')} criada para {customer['email']} ({customer['country_name']})")
+        print(f"✅ Encomenda criada: {order.get('id')} | {customer['country']} | {customer['province']}")
     else:
-        print(f"❌ Erro ao criar encomenda: {response.status_code} - {response.text}")
+        print(f"❌ Erro ({response.status_code}): {response.text}")
 
 # Executar
 products = get_products()
@@ -115,5 +113,4 @@ if products:
     for _ in range(20):
         create_order(products)
 else:
-    print("🚫 Nenhum produto encontrado.")
-
+    print("⚠️ Nenhum produto encontrado.")
