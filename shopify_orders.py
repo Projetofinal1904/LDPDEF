@@ -1,63 +1,119 @@
+# shopify_orders.py — Gera encomendas simuladas com produtos reais no Shopify
+
 import os
-import pandas as pd
 import requests
-from sqlalchemy import create_engine
+import random
+from faker import Faker
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+# Carregar variáveis de ambiente do .env
 load_dotenv()
 
-SHOP_NAME = os.getenv("SHOP_NAME")
-ACCESS_TOKEN = os.getenv("SHOPIFY_TOKEN")
-NEON_URL = os.getenv("NEON_URL")
+# Configurações do Shopify
+SHOP_NAME = os.getenv("SHOP_NAME", "none")
+SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
+API_VERSION = "2023-10"
+
+# Validar variáveis obrigatórias
+if not SHOPIFY_TOKEN:
+    raise ValueError("❌ Variável de ambiente SHOPIFY_TOKEN não definida!")
+if not SHOP_NAME or SHOP_NAME == "none":
+    raise ValueError(f"❌ SHOP_NAME inválido: {SHOP_NAME}")
 
 HEADERS = {
-    "X-Shopify-Access-Token": ACCESS_TOKEN,
+    "X-Shopify-Access-Token": SHOPIFY_TOKEN,
     "Content-Type": "application/json"
 }
 
-API_VERSION = "2023-10"
+faker = Faker()
+Faker.seed(42)
+random.seed(42)
 
-def fetch_data(endpoint, params=None):
-    url = f"https://{SHOP_NAME}/admin/api/{API_VERSION}/{endpoint}.json"
-    response = requests.get(url, headers=HEADERS, params=params)
+# Lista de países permitidos
+ALLOWED_COUNTRIES = [
+    "Portugal", "Espanha", "França", "Alemanha", "Itália", "Países Baixos", "Bélgica", "Suécia", "Noruega",
+    "Suíça", "Áustria", "Irlanda", "Dinamarca", "Polónia", "Grécia", "Finlândia", "Hungria", "Roménia",
+    "Estados Unidos", "Brasil"
+]
+
+# Obter produtos reais
+def get_products():
+    url = f"https://{SHOP_NAME}/admin/api/{API_VERSION}/products.json?limit=250"
+    response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
-        return response.json()
+        return response.json().get("products", [])
     else:
-        print(f"Erro {response.status_code} ao aceder a {endpoint}")
-        return {}
+        print(f"❌ Erro ao buscar produtos: {response.status_code} - {response.text}")
+        return []
 
-def sync_table(df, table_name, id_column):
-    engine = create_engine(NEON_URL)
-    with engine.connect() as conn:
-        existing = pd.read_sql(f"SELECT {id_column} FROM {table_name}", conn) if engine.dialect.has_table(conn, table_name) else pd.DataFrame(columns=[id_column])
-        novos = df[~df[id_column].isin(existing[id_column])]
-        if not novos.empty:
-            try:
-                novos.to_sql(table_name, conn, if_exists='append', index=False)
-                print(f"✅ {len(novos)} novos registos adicionados a {table_name}")
-            except Exception as e:
-                print(f"❌ Erro ao escrever em {table_name}:", e)
+# Gerar cliente fictício
+def generate_customer():
+    name = faker.name().split()
+    country = random.choice(ALLOWED_COUNTRIES)
+    return {
+        "first_name": name[0],
+        "last_name": name[-1],
+        "email": faker.email(),
+        "country": country
+    }
 
-def process_orders():
-    orders = fetch_data('orders', {'limit': 250, 'status': 'any'})
-    raw_orders = orders.get('orders', [])
+# Criar data aleatória entre abril 2025 e hoje
+def generate_random_date():
+    start_date = datetime(2025, 4, 1)
+    end_date = datetime.today()
+    delta = end_date - start_date
+    random_days = random.randint(0, delta.days)
+    return (start_date + timedelta(days=random_days)).strftime("%Y-%m-%dT%H:%M:%S")
 
-    data = []
-    for order in raw_orders:
-        country = order.get('shipping_address', {}).get('country')
-        if country:  # Só guarda se o país existir
-            data.append({
-                'order_id': order['id'],
-                'created_at': order['created_at'],
-                'country': country
-            })
+# Criar encomenda
+def create_order(products):
+    customer = generate_customer()
+    num_items = random.randint(1, 5)
+    selected_products = random.sample(products, min(num_items, len(products)))
 
-    df = pd.DataFrame(data)
-    if not df.empty:
-        sync_table(df, 'orders', 'order_id')
+    line_items = []
+    for product in selected_products:
+        variant = product["variants"][0]
+        line_items.append({
+            "variant_id": variant["id"],
+            "quantity": random.randint(1, 3)
+        })
+
+    order_data = {
+        "order": {
+            "email": customer["email"],
+            "financial_status": "paid",
+            "created_at": generate_random_date(),
+            "line_items": line_items,
+            "shipping_address": {
+                "first_name": customer["first_name"],
+                "last_name": customer["last_name"],
+                "address1": "Rua Fictícia",
+                "city": "Cidade Exemplo",
+                "province": "Região",
+                "country": customer["country"],
+                "zip": "0000-000"
+            }
+        }
+    }
+
+    url = f"https://{SHOP_NAME}/admin/api/{API_VERSION}/orders.json"
+    response = requests.post(url, headers=HEADERS, json=order_data)
+
+    if response.status_code == 201:
+        order = response.json().get("order", {})
+        print(f"✅ Encomenda criada: {order.get('id')} - {customer['country']} - {customer['email']}")
     else:
-        print("Nenhuma encomenda com país disponível encontrada.")
+        print(f"❌ Erro ao criar encomenda: {response.status_code} - {response.text}")
 
+# Execução
 if __name__ == "__main__":
-    process_orders()
+    products = get_products()
+    if products:
+        for _ in range(20):  # Número de encomendas a gerar
+            create_order(products)
+    else:
+        print("⚠️ Nenhum produto encontrado.")
+
 
