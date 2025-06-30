@@ -12,7 +12,7 @@ SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 API_VERSION = "2023-10"
 
 if not SHOP_NAME:
-    raise ValueError(f"❌ SHOP_NAME inválido: {SHOP_NAME}")
+    raise ValueError(f"SHOP_NAME inválido: {SHOP_NAME}")
 
 HEADERS = {
     "X-Shopify-Access-Token": SHOPIFY_TOKEN,
@@ -39,7 +39,7 @@ def get_products():
     if response.status_code == 200:
         return response.json().get("products", [])
     else:
-        print(f"❌ Erro ao buscar produtos: {response.status_code} - {response.text}")
+        print(f"Erro ao buscar produtos: {response.status_code} - {response.text}")
         return []
 
 def generate_customer():
@@ -103,9 +103,9 @@ def create_order(products):
 
     if response.status_code == 201:
         order = response.json().get("order", {})
-        print(f"✅ Encomenda criada: {order.get('id')} | {customer['country']} | {customer['province']}")
+        print(f"Encomenda criada: {order.get('id')} | {customer['country']} | {customer['province']}")
     else:
-        print(f"❌ Erro ({response.status_code}): {response.text}")
+        print(f"Erro ({response.status_code}): {response.text}")
 
 # Executar
 products = get_products()
@@ -113,4 +113,4 @@ if products:
     for _ in range(20):
         create_order(products)
 else:
-    print("⚠️ Nenhum produto encontrado.")
+    print("Nenhum produto encontrado.")
